@@ -1,0 +1,28 @@
+{
+  "name": "mockmind-ai-server",
+  "version": "1.0.0",
+  "description": "Backend server for MockMind AI - Local voice-to-voice interview simulator",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["interview", "ai", "ollama", "voice", "local"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "uuid": "^9.0.1",
+    "helmet": "^7.1.0",
+    "winston": "^3.11.0",
+    "joi": "^17.11.0",
+    "axios": "^1.6.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}

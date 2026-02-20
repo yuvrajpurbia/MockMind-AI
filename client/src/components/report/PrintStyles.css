@@ -1,0 +1,72 @@
+@media print {
+  /* Hide non-essential elements */
+  .no-print,
+  canvas,
+  footer,
+  button {
+    display: none !important;
+  }
+
+  /* Reset backgrounds for print */
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Override glass-morphism for readability */
+  .glass-morphism,
+  .glass-effect {
+    background: white !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border: 1px solid #ddd !important;
+    box-shadow: none !important;
+  }
+
+  /* Ensure text is readable */
+  .text-white { color: #111 !important; }
+  .text-gray-300, .text-gray-400, .text-gray-500 { color: #555 !important; }
+  .text-cyber-blue { color: #0088cc !important; }
+  .text-cyber-accent { color: #00aa55 !important; }
+  .text-cyber-purple { color: #7c3aed !important; }
+  .text-green-400 { color: #16a34a !important; }
+  .text-yellow-400 { color: #ca8a04 !important; }
+  .text-red-400 { color: #dc2626 !important; }
+
+  /* Override dark backgrounds */
+  .bg-gradient-dark,
+  [class*="bg-cyber"],
+  [class*="bg-gradient"] {
+    background: white !important;
+  }
+
+  /* SVG text prints well */
+  svg text {
+    fill: #111 !important;
+  }
+
+  /* Remove animations */
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* Force Q&A sections visible */
+  .print-expand {
+    display: block !important;
+    height: auto !important;
+    opacity: 1 !important;
+    overflow: visible !important;
+  }
+
+  /* Page margins */
+  @page {
+    margin: 1.5cm;
+  }
+
+  /* Avoid page breaks inside cards */
+  .glass-morphism,
+  .glass-effect {
+    page-break-inside: avoid;
+  }
+}
