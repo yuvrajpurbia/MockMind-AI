@@ -1,8 +1,9 @@
 # MockMind AI - Complete Project Documentation
 
 **Created by:** Yuvraj Purbia
-**Last Updated:** February 19, 2026
+**Last Updated:** February 20, 2026
 **Status:** All 6 Phases Complete - Production Ready
+**Repository:** https://github.com/yuvrajpurbia/MockMind-AI
 
 ---
 
@@ -375,7 +376,7 @@ YOU (Browser on your computer)
 
 ### Video Call Layout
 - Zoom/Meet-style split screen (40% AI / 60% candidate)
-- AI panel: 3D avatar on top, live captions on bottom, 10% internal padding
+- AI panel: 3D avatar (55% top) + live captions (40% bottom), 6% internal padding
 - Candidate panel: webcam feed with overlaid controls
 - Controls bar at bottom (microphone, camera, mute AI, end interview)
 - Mouse parallax effect on panels
@@ -428,8 +429,7 @@ YOU (Browser on your computer)
 - API retry logic (2 retries with exponential backoff for transient failures)
 - Code splitting (each page loads separately, Three.js only loads when needed)
 - Lazy route loading with Suspense fallback
-- Three.js GPU memory disposal on navigation
-- Animation frame leak prevention
+- Animation frame leak prevention (ParticleBackground cancelAnimationFrame cleanup)
 - WCAG-compliant touch targets (44px minimum)
 - Responsive grids for mobile/tablet
 
@@ -555,7 +555,7 @@ MockMind AI/
 |
 |-- CONTEXT.md                           # This documentation file
 |-- README.md                            # Quick-start guide
-|-- .gitignore                           # Files excluded from version control
+|-- .gitignore                           # Files excluded from version control (node_modules, .env, dist, .claude/, etc.)
 ```
 
 **By the numbers:**
@@ -641,8 +641,8 @@ Made everything production-ready:
 - Code splitting: pages load separately, Three.js (1.1MB) only loads when entering the interview
 - Proper HTML meta tags, favicon, and Open Graph tags for social sharing
 - Responsive design fixes (mobile-friendly grids, 44px touch targets)
-- Three.js GPU memory cleanup on navigation (prevents memory leaks)
-- Animation frame leak fixes
+- Animation frame leak fixes (ParticleBackground rAF cleanup)
+- R3F Canvas relies on built-in disposal (manual SceneCleanup removed — conflicts with React StrictMode double-mount)
 
 ---
 
@@ -823,3 +823,4 @@ VITE_API_BASE_URL=http://localhost:5000
 ---
 
 **Created by Yuvraj Purbia**
+**GitHub:** https://github.com/yuvrajpurbia/MockMind-AI

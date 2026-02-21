@@ -25,7 +25,7 @@ export function errorHandler(err, req, res, next) {
   } else if (err.message.includes('Validation')) {
     statusCode = 400;
     message = err.message;
-  } else if (err.message.includes('Ollama')) {
+  } else if (err.message.includes('Ollama') || err.message.includes('LLM error') || err.message.includes('Groq')) {
     statusCode = 503;
     message = err.message;
   }

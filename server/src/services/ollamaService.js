@@ -3,42 +3,67 @@ import { logger } from '../utils/logger.js';
 
 class OllamaService {
   constructor() {
-    this.baseURL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-    this.model = process.env.OLLAMA_MODEL || 'llama3.2:3b';
-    this.timeout = 120000; // 120 seconds (first request can be slow on cold start)
-  }
+    this.groqApiKey = process.env.GROQ_API_KEY || null;
+    this.useGroq = !!this.groqApiKey;
 
-  /**
-   * Test connection to Ollama
-   */
-  async testConnection() {
-    try {
-      const response = await axios.get(`${this.baseURL}/api/tags`, {
-        timeout: 5000
-      });
-
-      const modelExists = response.data.models?.some(m => m.name.includes(this.model.split(':')[0]));
-
-      return {
-        connected: true,
-        model: this.model,
-        available: modelExists
-      };
-    } catch (error) {
-      logger.error('Ollama connection test failed:', error.message);
-      return {
-        connected: false,
-        model: this.model,
-        available: false,
-        error: error.message
-      };
+    if (this.useGroq) {
+      this.baseURL = 'https://api.groq.com/openai/v1';
+      this.model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+      this.timeout = 60000;
+      this.provider = 'Groq';
+      logger.info(`LLM Provider: Groq (model: ${this.model})`);
+    } else {
+      this.baseURL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+      this.model = process.env.OLLAMA_MODEL || 'llama3.2:3b';
+      this.timeout = 120000;
+      this.provider = 'Ollama';
     }
   }
 
   /**
-   * Generate response from Ollama with JSON parsing
+   * Test connection to the LLM provider
+   */
+  async testConnection() {
+    if (this.useGroq) return this._testGroqConnection();
+    return this._testOllamaConnection();
+  }
+
+  async _testOllamaConnection() {
+    try {
+      const response = await axios.get(`${this.baseURL}/api/tags`, {
+        timeout: 5000
+      });
+      const modelExists = response.data.models?.some(m => m.name.includes(this.model.split(':')[0]));
+      return { connected: true, model: this.model, available: modelExists };
+    } catch (error) {
+      logger.error('Ollama connection test failed:', error.message);
+      return { connected: false, model: this.model, available: false, error: error.message };
+    }
+  }
+
+  async _testGroqConnection() {
+    try {
+      const response = await axios.get(`${this.baseURL}/models`, {
+        timeout: 5000,
+        headers: { Authorization: `Bearer ${this.groqApiKey}` }
+      });
+      const modelExists = response.data.data?.some(m => m.id === this.model);
+      return { connected: true, model: this.model, available: modelExists };
+    } catch (error) {
+      logger.error('Groq connection test failed:', error.message);
+      return { connected: false, model: this.model, available: false, error: error.message };
+    }
+  }
+
+  /**
+   * Generate response from LLM with JSON parsing
    */
   async generate(prompt, options = {}) {
+    if (this.useGroq) return this._generateGroq(prompt, options);
+    return this._generateOllama(prompt, options);
+  }
+
+  async _generateOllama(prompt, options = {}) {
     const maxRetries = 2;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -49,7 +74,7 @@ class OllamaService {
           model: this.model,
           prompt: prompt,
           stream: false,
-          format: 'json', // Force Ollama to output valid JSON
+          format: 'json',
           options: {
             temperature: options.temperature || 0.7,
             top_p: options.top_p || 0.9,
@@ -60,87 +85,104 @@ class OllamaService {
         const response = await axios.post(
           `${this.baseURL}/api/generate`,
           requestBody,
-          {
-            timeout: this.timeout,
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          }
+          { timeout: this.timeout, headers: { 'Content-Type': 'application/json' } }
         );
 
         const rawResponse = response.data.response;
         logger.info('Received response from Ollama');
-
-        // Parse JSON from response
         const jsonResponse = this.extractJSON(rawResponse);
-
-        return {
-          success: true,
-          data: jsonResponse,
-          raw: rawResponse
-        };
+        return { success: true, data: jsonResponse, raw: rawResponse };
 
       } catch (error) {
-        // Connection/timeout errors — don't retry
         if (error.code === 'ECONNREFUSED') {
           throw new Error('Cannot connect to Ollama. Make sure Ollama is running.');
         }
         if (error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
           throw new Error('Ollama request timed out. The model might be too slow.');
         }
-
-        // JSON parsing errors — retry if attempts remain
         if (attempt < maxRetries && error.message.includes('JSON')) {
           logger.warn(`JSON parse failed on attempt ${attempt}, retrying...`);
           continue;
         }
-
         logger.error('Ollama generation failed:', error.message);
         throw new Error(`Ollama error: ${error.message}`);
       }
     }
   }
 
+  async _generateGroq(prompt, options = {}) {
+    const maxRetries = 2;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        logger.info(`Sending prompt to Groq (${this.model}), attempt ${attempt}/${maxRetries}...`);
+
+        const response = await axios.post(
+          `${this.baseURL}/chat/completions`,
+          {
+            model: this.model,
+            messages: [
+              { role: 'system', content: 'You are an expert technical interviewer. Always respond with valid JSON only.' },
+              { role: 'user', content: prompt }
+            ],
+            temperature: options.temperature || 0.7,
+            top_p: options.top_p || 0.9,
+            response_format: { type: 'json_object' }
+          },
+          {
+            timeout: this.timeout,
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${this.groqApiKey}`
+            }
+          }
+        );
+
+        const rawResponse = response.data.choices[0].message.content;
+        logger.info('Received response from Groq');
+        const jsonResponse = this.extractJSON(rawResponse);
+        return { success: true, data: jsonResponse, raw: rawResponse };
+
+      } catch (error) {
+        if (error.response?.status === 429) {
+          const waitMs = 2000 * attempt;
+          logger.warn(`Groq rate limited, waiting ${waitMs}ms...`);
+          await new Promise(r => setTimeout(r, waitMs));
+          continue;
+        }
+        if (attempt < maxRetries && error.message.includes('JSON')) {
+          logger.warn(`JSON parse failed on attempt ${attempt}, retrying...`);
+          continue;
+        }
+        logger.error('Groq generation failed:', error.message);
+        throw new Error(`LLM error: ${error.message}`);
+      }
+    }
+  }
+
   /**
-   * Extract JSON from Ollama response
-   * Handles cases where model adds extra text around JSON
+   * Extract JSON from LLM response
    */
   extractJSON(text) {
     if (!text || !text.trim()) {
-      throw new Error('Empty response from Ollama');
+      throw new Error('Empty response from LLM');
     }
 
-    // 1. Direct parse
-    try {
-      return JSON.parse(text);
-    } catch (e) {
-      // continue to extraction strategies
-    }
+    try { return JSON.parse(text); } catch (e) { /* continue */ }
 
-    // 2. Strip markdown code fences (```json ... ``` or ``` ... ```)
     const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (fenceMatch) {
-      try {
-        return JSON.parse(fenceMatch[1].trim());
-      } catch (e) {
-        // continue
-      }
+      try { return JSON.parse(fenceMatch[1].trim()); } catch (e) { /* continue */ }
     }
 
-    // 3. Find the outermost { ... } block
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      try {
-        return JSON.parse(jsonMatch[0]);
-      } catch (e) {
-        // 4. Try cleaning control characters that break JSON
+      try { return JSON.parse(jsonMatch[0]); } catch (e) {
         const cleaned = jsonMatch[0]
           .replace(/[\x00-\x1F\x7F]/g, (ch) => ch === '\n' || ch === '\r' || ch === '\t' ? ch : '')
-          .replace(/,\s*}/g, '}')   // trailing commas
+          .replace(/,\s*}/g, '}')
           .replace(/,\s*]/g, ']');
-        try {
-          return JSON.parse(cleaned);
-        } catch (e2) {
+        try { return JSON.parse(cleaned); } catch (e2) {
           logger.error('Failed to parse extracted JSON:', jsonMatch[0].substring(0, 500));
           throw new Error('Invalid JSON in response');
         }
@@ -148,60 +190,33 @@ class OllamaService {
     }
 
     logger.error('No valid JSON found in response:', text.substring(0, 500));
-    throw new Error('No JSON found in Ollama response');
+    throw new Error('No JSON found in LLM response');
   }
 
-  /**
-   * Generate interview question
-   */
   async generateQuestion(prompt) {
-    const result = await this.generate(prompt, {
-      temperature: 0.8 // Slightly higher for creativity in questions
-    });
-
-    // Validate response structure
+    const result = await this.generate(prompt, { temperature: 0.8 });
     if (!result.data.question || !result.data.type || !result.data.difficulty) {
-      throw new Error('Invalid question format from Ollama');
+      throw new Error('Invalid question format from LLM');
     }
-
     return result.data;
   }
 
-  /**
-   * Evaluate an answer
-   */
   async evaluateAnswer(prompt) {
-    const result = await this.generate(prompt, {
-      temperature: 0.6 // Lower for more consistent evaluation
-    });
-
-    // Validate response structure
+    const result = await this.generate(prompt, { temperature: 0.6 });
     if (typeof result.data.score !== 'number' || !result.data.feedback) {
-      throw new Error('Invalid evaluation format from Ollama');
+      throw new Error('Invalid evaluation format from LLM');
     }
-
-    // Ensure score is in valid range
     result.data.score = Math.max(0, Math.min(100, result.data.score));
-
     return result.data;
   }
 
-  /**
-   * Generate final report
-   */
   async generateReport(prompt) {
-    const result = await this.generate(prompt, {
-      temperature: 0.7
-    });
-
-    // Validate response structure
+    const result = await this.generate(prompt, { temperature: 0.7 });
     if (typeof result.data.overallScore !== 'number' || !result.data.summary) {
-      throw new Error('Invalid report format from Ollama');
+      throw new Error('Invalid report format from LLM');
     }
-
     return result.data;
   }
 }
 
-// Export singleton instance
 export const ollamaService = new OllamaService();

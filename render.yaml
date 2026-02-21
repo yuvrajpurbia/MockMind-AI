@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: mockmind-ai-api
+    runtime: node
+    region: oregon
+    rootDir: server
+    buildCommand: npm ci --omit=dev
+    startCommand: node src/server.js
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: MAX_SESSION_AGE_MS
+        value: 7200000

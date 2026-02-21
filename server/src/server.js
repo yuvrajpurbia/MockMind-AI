@@ -47,20 +47,24 @@ app.use(errorHandler);
 // Start server
 async function startServer() {
   try {
-    // Test Ollama connection on startup
-    logger.info('Testing Ollama connection...');
-    const ollamaStatus = await ollamaService.testConnection();
+    // Test LLM connection on startup
+    logger.info(`Testing ${ollamaService.provider} connection...`);
+    const llmStatus = await ollamaService.testConnection();
 
-    if (!ollamaStatus.connected) {
-      logger.warn('⚠️  WARNING: Cannot connect to Ollama!');
-      logger.warn('Make sure Ollama is running: ollama serve');
+    if (!llmStatus.connected) {
+      logger.warn(`⚠️  WARNING: Cannot connect to ${ollamaService.provider}!`);
+      if (!ollamaService.useGroq) {
+        logger.warn('Make sure Ollama is running: ollama serve');
+      }
       logger.warn('Server will start but interview features will not work.');
-    } else if (!ollamaStatus.available) {
+    } else if (!llmStatus.available) {
       logger.warn(`⚠️  WARNING: Model ${ollamaService.model} not found!`);
-      logger.warn(`Please install it: ollama pull ${ollamaService.model}`);
+      if (!ollamaService.useGroq) {
+        logger.warn(`Please install it: ollama pull ${ollamaService.model}`);
+      }
       logger.warn('Server will start but interview features will not work.');
     } else {
-      logger.info(`✅ Ollama connected successfully with model: ${ollamaStatus.model}`);
+      logger.info(`✅ ${ollamaService.provider} connected successfully with model: ${llmStatus.model}`);
     }
 
     // Start Express server
@@ -70,8 +74,8 @@ async function startServer() {
       logger.info('='.repeat(50));
       logger.info(`📡 Server running on: http://localhost:${PORT}`);
       logger.info(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
-      logger.info(`🤖 Ollama URL: ${process.env.OLLAMA_BASE_URL || 'http://localhost:11434'}`);
-      logger.info(`🧠 LLM Model: ${process.env.OLLAMA_MODEL || 'llama3.2:3b'}`);
+      logger.info(`🤖 LLM Provider: ${ollamaService.provider}`);
+      logger.info(`🧠 LLM Model: ${ollamaService.model}`);
       logger.info('='.repeat(50));
       logger.info('📚 API Endpoints:');
       logger.info('   POST   /api/interviews/start');
